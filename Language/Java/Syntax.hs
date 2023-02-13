@@ -57,7 +57,7 @@ import Language.Java.Syntax.Exp
 
 
 -- | A compilation unit is the top level syntactic goal symbol of a Java program.
-data CompilationUnit = CompilationUnit (Maybe PackageDecl) [ImportDecl] [TypeDecl]
+data CompilationUnit a = CompilationUnit (Maybe PackageDecl) [ImportDecl] [TypeDecl] a
   deriving (Eq,Show,Read,Typeable,Generic,Data)
 
 

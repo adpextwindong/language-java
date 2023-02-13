@@ -31,8 +31,8 @@ class Pretty a where
 -----------------------------------------------------------------------
 -- Packages
 
-instance Pretty CompilationUnit where
-  prettyPrec p (CompilationUnit mpd ids tds) =
+instance Pretty (CompilationUnit a) where
+  prettyPrec p (CompilationUnit mpd ids tds a) =
     vcat $ ((maybePP p mpd): map (prettyPrec p) ids) ++ map (prettyPrec p) tds
 
 instance Pretty PackageDecl where

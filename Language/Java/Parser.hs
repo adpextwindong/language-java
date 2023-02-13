@@ -1,6 +1,6 @@
 {-# LANGUAGE CPP #-}
 module Language.Java.Parser (
-    parser,
+    parser, SourceInfo(..),
 
     compilationUnit, packageDecl, importDecl, typeDecl,
 
@@ -58,6 +58,9 @@ import Control.Applicative ( (<$>), (<$), (<*), (<*>) )
 
 type P = Parsec [L Token] ()
 
+data SourceInfo = SourceInfo SourcePos SourcePos
+  deriving Show
+
 -- A trick to allow >> and >>=, normally infixr 1, to be
 -- used inside branches of <|>, which is declared as infixl 1.
 -- There are no clashes with other operators of precedence 2.
@@ -70,7 +73,7 @@ infixr 2 >>, >>=
 ----------------------------------------------------------------------------
 -- Top-level parsing
 
-parseCompilationUnit :: String -> Either ParseError CompilationUnit
+parseCompilationUnit :: String -> Either ParseError (CompilationUnit SourceInfo)
 parseCompilationUnit inp =
     runParser compilationUnit () "" (lexer inp)
 
@@ -82,13 +85,16 @@ parser p = runParser p () "" . lexer
 ----------------------------------------------------------------------------
 -- Packages and compilation units
 
-compilationUnit :: P CompilationUnit
+compilationUnit :: P (CompilationUnit SourceInfo)
 compilationUnit = do
+    pos1 <- getPosition
     mpd <- opt packageDecl
     ids <- list importDecl
     tds <- list typeDecl
     eof
-    return $ CompilationUnit mpd ids (catMaybes tds)
+    pos2 <- getPosition
+    let srcInfo = SourceInfo pos1 pos2
+    return $ CompilationUnit mpd ids (catMaybes tds) srcInfo
 
 packageDecl :: P PackageDecl
 packageDecl = do
