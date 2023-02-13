@@ -96,12 +96,15 @@ compilationUnit = do
     let srcInfo = SourceInfo pos1 pos2
     return $ CompilationUnit mpd ids (catMaybes tds) srcInfo
 
-packageDecl :: P PackageDecl
+packageDecl :: P (PackageDecl SourceInfo)
 packageDecl = do
+    pos1 <- getPosition
     tok KW_Package
     n <- name
     semiColon
-    return $ PackageDecl n
+    pos2 <- getPosition
+    let srcInfo = SourceInfo pos1 pos2
+    return $ PackageDecl n srcInfo
 
 importDecl :: P ImportDecl
 importDecl = do

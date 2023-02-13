@@ -31,12 +31,13 @@ class Pretty a where
 -----------------------------------------------------------------------
 -- Packages
 
+-- SourceInfo param a note: Leaving this unpretty printed for now
 instance Pretty (CompilationUnit a) where
-  prettyPrec p (CompilationUnit mpd ids tds a) =
+  prettyPrec p (CompilationUnit mpd ids tds _) =
     vcat $ ((maybePP p mpd): map (prettyPrec p) ids) ++ map (prettyPrec p) tds
 
-instance Pretty PackageDecl where
-  prettyPrec p (PackageDecl name) = text "package" <+> prettyPrec p name <> semi
+instance Pretty (PackageDecl a) where
+  prettyPrec p (PackageDecl name _) = text "package" <+> prettyPrec p name <> semi
 
 instance Pretty ImportDecl where
   prettyPrec p (ImportDecl st name wc) =
