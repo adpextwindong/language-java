@@ -487,8 +487,8 @@ instance Pretty (ClassType a) where
       map (\(i,tas) -> prettyPrec p i <> ppTypeParams p tas) itas
 
 instance Pretty (TypeArgument a) where
-  prettyPrec p (ActualType rt _) = prettyPrec p rt
-  prettyPrec p (Wildcard mBound _) = char '?' <+> maybePP p mBound
+  prettyPrec p (ActualType _ rt) = prettyPrec p rt
+  prettyPrec p (Wildcard _ mBound) = char '?' <+> maybePP p mBound
 
 instance Pretty (TypeDeclSpecifier a) where
   prettyPrec p (TypeDeclSpecifier ct _) = prettyPrec p ct

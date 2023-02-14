@@ -28,8 +28,8 @@ data ClassType a
 
 -- | Type arguments may be either reference types or wildcards.
 data TypeArgument a
-    = Wildcard (Maybe (WildcardBound a)) a
-    | ActualType (RefType a) a
+    = Wildcard a (Maybe (WildcardBound a))
+    | ActualType a (RefType a)
   deriving (Eq,Show,Read,Typeable,Generic,Data)
 
 data TypeDeclSpecifier a

@@ -1145,10 +1145,18 @@ typeParams :: P [TypeParam SourceInfo]
 typeParams = angles $ seplist1 typeParam comma
 
 typeParam :: P (TypeParam SourceInfo)
-typeParam = do
+typeParam = withSourceSpan $ do
     i  <- ident
     bs <- lopt bounds
     return $ TypeParam i bs
+
+--TODO LIFT THIS
+withSourceSpan :: P (SourceInfo -> a) -> P a
+withSourceSpan p = do
+  pos1 <- getPosition
+  p' <- p
+  pos2 <- getPosition
+  return $ p' (SourceSpan pos1 pos2)
 
 bounds :: P [RefType SourceInfo]
 bounds = tok KW_Extends >> seplist1 refType (tok Op_And)
@@ -1157,8 +1165,8 @@ typeArgs :: P [TypeArgument SourceInfo]
 typeArgs = angles $ seplist1 typeArg comma
 
 typeArg :: P (TypeArgument SourceInfo)
-typeArg = tok Op_Query >> Wildcard <$> opt wildcardBound
-    <|> ActualType <$> refType
+typeArg = tok Op_Query >> sourceSpot >>= (\wSpot -> Wildcard wSpot <$> opt wildcardBound)
+    <|> sourceSpot >>= (\aSpot -> ActualType aSpot <$> refType)
 
 wildcardBound :: P (WildcardBound SourceInfo)
 wildcardBound = sourceSpot >>= (\spot ->
@@ -1185,7 +1193,7 @@ ident = do
     IdentTok s -> Just $ Ident s pos
     _ -> Nothing
 
-
+--TODO LIFT THIS
 sourcePos = statePos <$> getParserState
 sourceSpot = SourceSpot <$> sourcePos
 ------------------------------------------------------------
