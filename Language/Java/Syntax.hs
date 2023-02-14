@@ -389,21 +389,21 @@ data Exp a
     -- | An expression name, e.g. a variable.
     | ExpName (Name a) a
     -- | Post-incrementation expression, i.e. an expression followed by @++@.
-    | PostIncrement (Exp a) a
+    | PostIncrement a (Exp a)
     -- | Post-decrementation expression, i.e. an expression followed by @--@.
-    | PostDecrement (Exp a) a
+    | PostDecrement a (Exp a)
     -- | Pre-incrementation expression, i.e. an expression preceded by @++@.
-    | PreIncrement  (Exp a) a
+    | PreIncrement  a (Exp a)
     -- | Pre-decrementation expression, i.e. an expression preceded by @--@.
-    | PreDecrement  (Exp a) a
+    | PreDecrement  a (Exp a)
     -- | Unary plus, the promotion of the value of the expression to a primitive numeric type.
-    | PrePlus  (Exp a) a
+    | PrePlus  a (Exp a)
     -- | Unary minus, the promotion of the negation of the value of the expression to a primitive numeric type.
-    | PreMinus (Exp a) a
+    | PreMinus a (Exp a)
     -- | Unary bitwise complementation: note that, in all cases, @~x@ equals @(-x)-1@.
-    | PreBitCompl (Exp a) a
+    | PreBitCompl a (Exp a)
     -- | Logical complementation of boolean values.
-    | PreNot  (Exp a) a
+    | PreNot  a (Exp a)
     -- | A cast expression converts, at run time, a value of one numeric type to a similar value of another
     --   numeric type; or confirms, at compile time, that the type of an expression is boolean; or checks,
     --   at run time, that a reference value refers to an object whose class is compatible with a specified

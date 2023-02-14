@@ -329,21 +329,21 @@ instance Show a => Pretty (Exp a) where
 
   prettyPrec p (ExpName name _) = prettyPrec p name
 
-  prettyPrec p (PostIncrement e _) = parenPrec p 1 $ prettyPrec 2 e <> text "++"
+  prettyPrec p (PostIncrement _ e) = parenPrec p 1 $ prettyPrec 2 e <> text "++"
 
-  prettyPrec p (PostDecrement e _) = parenPrec p 1 $ prettyPrec 2 e <> text "--"
+  prettyPrec p (PostDecrement _ e) = parenPrec p 1 $ prettyPrec 2 e <> text "--"
 
-  prettyPrec p (PreIncrement e _)  = parenPrec p 1 $ text "++" <> prettyPrec 2 e
+  prettyPrec p (PreIncrement _ e)  = parenPrec p 1 $ text "++" <> prettyPrec 2 e
 
-  prettyPrec p (PreDecrement e _)  = parenPrec p 1 $ text "--" <> prettyPrec 2 e
+  prettyPrec p (PreDecrement _ e)  = parenPrec p 1 $ text "--" <> prettyPrec 2 e
 
-  prettyPrec p (PrePlus e _) = parenPrec p 2 $ char '+' <> prettyPrec 2 e
+  prettyPrec p (PrePlus _ e) = parenPrec p 2 $ char '+' <> prettyPrec 2 e
 
-  prettyPrec p (PreMinus e _) = parenPrec p 2 $ char '-' <> prettyPrec 2 e
+  prettyPrec p (PreMinus _ e) = parenPrec p 2 $ char '-' <> prettyPrec 2 e
 
-  prettyPrec p (PreBitCompl e _) = parenPrec p 2 $ char '~' <> prettyPrec 2 e
+  prettyPrec p (PreBitCompl _ e) = parenPrec p 2 $ char '~' <> prettyPrec 2 e
 
-  prettyPrec p (PreNot e _) = parenPrec p 2 $ char '!' <> prettyPrec 2 e
+  prettyPrec p (PreNot _ e) = parenPrec p 2 $ char '!' <> prettyPrec 2 e
 
   prettyPrec p (Cast t e _) = parenPrec p 2 $ parens (prettyPrec p t) <+> prettyPrec 2 e
 

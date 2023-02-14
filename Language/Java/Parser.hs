@@ -1013,55 +1013,62 @@ arrayCreation = do
     return $ f t
 
 literal :: P (Literal SourceInfo)
-literal =
+literal = do
+    srcSpot <- sourceSpot
     javaToken $ \t -> case t of
-        IntTok     i -> Just (Int i)
-        LongTok    l -> Just (Word l)
-        DoubleTok  d -> Just (Double d)
-        FloatTok   f -> Just (Float f)
-        CharTok    c -> Just (Char c)
-        StringTok  s -> Just (String s)
-        BoolTok    b -> Just (Boolean b)
-        NullTok      -> Just Null
+        IntTok     i -> Just (Int i srcSpot)
+        LongTok    l -> Just (Word l srcSpot)
+        DoubleTok  d -> Just (Double d srcSpot)
+        FloatTok   f -> Just (Float f srcSpot)
+        CharTok    c -> Just (Char c srcSpot)
+        StringTok  s -> Just (String s srcSpot)
+        BoolTok    b -> Just (Boolean b srcSpot)
+        NullTok      -> Just $ Null srcSpot
         _ -> Nothing
 
 -- Operators
 
 preIncDecOp, prefixOp, postfixOp :: P (Exp SourceInfo -> Exp SourceInfo)
 preIncDecOp =
-    (tok Op_PPlus >> return PreIncrement) <|>
-    (tok Op_MMinus >> return PreDecrement)
+  sourceSpot >>= (\srcSpot ->
+    (tok Op_PPlus >> return (PreIncrement srcSpot))<|>
+    (tok Op_MMinus >> return (PreDecrement srcSpot)))
+
 prefixOp =
-    (tok Op_Bang  >> return PreNot      ) <|>
-    (tok Op_Tilde >> return PreBitCompl ) <|>
-    (tok Op_Plus  >> return PrePlus     ) <|>
-    (tok Op_Minus >> return PreMinus    )
+  sourceSpot >>= (\srcSpot ->
+    (tok Op_Bang  >> return (PreNot srcSpot)) <|>
+    (tok Op_Tilde >> return (PreBitCompl srcSpot)) <|>
+    (tok Op_Plus  >> return (PrePlus srcSpot)) <|>
+    (tok Op_Minus >> return (PreMinus srcSpot)))
 postfixOp =
-    (tok Op_PPlus  >> return PostIncrement) <|>
-    (tok Op_MMinus >> return PostDecrement)
+  sourceSpot >>= (\srcSpot ->
+    (tok Op_PPlus  >> return (PostIncrement srcSpot)) <|>
+    (tok Op_MMinus >> return (PostDecrement srcSpot)))
 
 assignOp :: P (AssignOp SourceInfo)
 assignOp =
-    (tok Op_Equal    >> return EqualA   ) <|>
-    (tok Op_StarE    >> return MultA    ) <|>
-    (tok Op_SlashE   >> return DivA     ) <|>
-    (tok Op_PercentE >> return RemA     ) <|>
-    (tok Op_PlusE    >> return AddA     ) <|>
-    (tok Op_MinusE   >> return SubA     ) <|>
-    (tok Op_LShiftE  >> return LShiftA  ) <|>
-    (tok Op_RShiftE  >> return RShiftA  ) <|>
-    (tok Op_RRShiftE >> return RRShiftA ) <|>
-    (tok Op_AndE     >> return AndA     ) <|>
-    (tok Op_CaretE   >> return XorA     ) <|>
-    (tok Op_OrE      >> return OrA      )
+  sourceSpot >>= (\srcSpot ->
+    (tok Op_Equal    >> return (EqualA srcSpot)) <|>
+    (tok Op_StarE    >> return (MultA srcSpot)) <|>
+    (tok Op_SlashE   >> return (DivA srcSpot)) <|>
+    (tok Op_PercentE >> return (RemA srcSpot)) <|>
+    (tok Op_PlusE    >> return (AddA srcSpot)) <|>
+    (tok Op_MinusE   >> return (SubA srcSpot)) <|>
+    (tok Op_LShiftE  >> return (LShiftA srcSpot)) <|>
+    (tok Op_RShiftE  >> return (RShiftA srcSpot)) <|>
+    (tok Op_RRShiftE >> return (RRShiftA srcSpot)) <|>
+    (tok Op_AndE     >> return (AndA srcSpot)) <|>
+    (tok Op_CaretE   >> return (XorA srcSpot)) <|>
+    (tok Op_OrE      >> return (OrA srcSpot)))
 
 infixCombineOp :: P (Op SourceInfo)
 infixCombineOp =
-    (tok Op_And     >> return And       ) <|>
-    (tok Op_Caret   >> return Xor       ) <|>
-    (tok Op_Or      >> return Or        ) <|>
-    (tok Op_AAnd    >> return CAnd      ) <|>
-    (tok Op_OOr     >> return COr       )
+  sourceSpot >>= (\srcSpot ->
+    (tok Op_And     >> return (And srcSpot)) <|>
+    (tok Op_Caret   >> return (Xor srcSpot)) <|>
+    (tok Op_Or      >> return (Or srcSpot)) <|>
+    (tok Op_AAnd    >> return (CAnd srcSpot)) <|>
+    (tok Op_OOr     >> return (COr srcSpot)))
 
 
 infixOp :: P (Op SourceInfo)
