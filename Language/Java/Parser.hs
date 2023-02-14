@@ -930,9 +930,9 @@ methodInvocationExp = try (do
     ss <- list primarySuffix
     let mip = foldl (\a s -> s a) p ss
     case mip of
-     MethodInv _ -> return mip
+     MethodInv _ e -> return mip
      _ -> fail "") <|>
-     (MethodInv <$> methodInvocationNPS)
+     withSourceSpan (MethodInv <$> methodInvocationNPS)
 
 --TODO REMOVE?
 {-
