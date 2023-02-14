@@ -43,8 +43,8 @@ data Diamond a = Diamond a
 
 -- | Wildcards may be given explicit bounds, either upper (@extends@) or lower (@super@) bounds.
 data WildcardBound a
-    = ExtendsBound (RefType a) a
-    | SuperBound (RefType a) a
+    = ExtendsBound a (RefType a)
+    | SuperBound a (RefType a)
   deriving (Eq,Show,Read,Typeable,Generic,Data)
 
 -- | A primitive type is predefined by the Java programming language and named by its reserved keyword.

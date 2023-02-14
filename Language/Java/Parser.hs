@@ -39,7 +39,7 @@ import Language.Java.Syntax
 import Language.Java.Pretty (pretty)
 
 import Text.Parsec hiding ( Empty )
-import Text.Parsec.Pos
+import Text.Parsec.Pos (newPos)
 
 import Prelude hiding ( exp, catch, (>>), (>>=) )
 import qualified Prelude as P ( (>>), (>>=) )
@@ -58,7 +58,8 @@ import Control.Applicative ( (<$>), (<$), (<*), (<*>) )
 
 type P = Parsec [L Token] ()
 
-data SourceInfo = SourceInfo SourcePos SourcePos
+data SourceInfo = SourceSpan SourcePos SourcePos
+                | SourceSpot SourcePos
   deriving Show
 
 -- A trick to allow >> and >>=, normally infixr 1, to be
@@ -1160,8 +1161,9 @@ typeArg = tok Op_Query >> Wildcard <$> opt wildcardBound
     <|> ActualType <$> refType
 
 wildcardBound :: P (WildcardBound SourceInfo)
-wildcardBound = tok KW_Extends >> ExtendsBound <$> refType
-    <|> tok KW_Super >> SuperBound <$> refType
+wildcardBound = sourceSpot >>= (\spot ->
+       (tok KW_Extends >> (ExtendsBound spot) <$> refType
+    <|> tok KW_Super >> (SuperBound spot) <$> refType))
 
 refTypeArgs :: P [RefType SourceInfo]
 refTypeArgs = angles refTypeList
@@ -1170,13 +1172,22 @@ refTypeArgs = angles refTypeList
 -- Names
 
 name :: P (Name SourceInfo)
-name = Name <$> seplist1 ident period
+name = do
+  pos1 <- getPosition
+  pname <- seplist1 ident period
+  pos2 <- getPosition
+  return $ Name pname $ SourceSpan pos1 pos2
 
 ident :: P (Ident SourceInfo)
-ident = javaToken $ \t -> case t of
-    IdentTok s -> Just $ Ident s
+ident = do
+  pos <- SourceSpot <$> sourcePos
+  javaToken $ \t -> case t of
+    IdentTok s -> Just $ Ident s pos
     _ -> Nothing
 
+
+sourcePos = statePos <$> getParserState
+sourceSpot = SourceSpot <$> sourcePos
 ------------------------------------------------------------
 
 empty :: P ()

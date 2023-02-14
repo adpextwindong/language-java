@@ -499,8 +499,8 @@ instance Pretty (Diamond a) where
   prettyPrec p (Diamond _) = text "<>"
 
 instance Pretty (WildcardBound a) where
-  prettyPrec p (ExtendsBound rt _) = text "extends" <+> prettyPrec p rt
-  prettyPrec p (SuperBound   rt _) = text "super"   <+> prettyPrec p rt
+  prettyPrec p (ExtendsBound _ rt) = text "extends" <+> prettyPrec p rt
+  prettyPrec p (SuperBound   _ rt) = text "super"   <+> prettyPrec p rt
 
 instance Pretty (PrimType a) where
   prettyPrec p (BooleanT _) = text "boolean"
