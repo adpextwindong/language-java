@@ -1065,49 +1065,54 @@ infixCombineOp =
 
 
 infixOp :: P (Op SourceInfo)
-infixOp =
-    (tok Op_Star    >> return Mult      ) <|>
-    (tok Op_Slash   >> return Div       ) <|>
-    (tok Op_Percent >> return Rem       ) <|>
-    (tok Op_Plus    >> return Add       ) <|>
-    (tok Op_Minus   >> return Sub       ) <|>
-    (tok Op_LShift  >> return LShift    ) <|>
-    (tok Op_LThan   >> return LThan     ) <|>
-    (try $ do
+infixOp = sourceSpot >>= (\srcSpot ->
+    (tok Op_Star    >> return (Mult srcSpot))   <|>
+    (tok Op_Slash   >> return (Div srcSpot))    <|>
+    (tok Op_Percent >> return (Rem srcSpot))    <|>
+    (tok Op_Plus    >> return (Add srcSpot))     <|>
+    (tok Op_Minus   >> return (Sub srcSpot))    <|>
+    (tok Op_LShift  >> return (LShift srcSpot)) <|>
+    (tok Op_LThan   >> return (LThan srcSpot))  <|>
+    (try $ withSourceSpan (do
        tok Op_GThan
        tok Op_GThan
        tok Op_GThan
-       return RRShift   ) <|>
+       return RRShift   )) <|>
 
-    (try $ do
+    (try $ withSourceSpan (do
        tok Op_GThan
        tok Op_GThan
-       return RShift    ) <|>
+       return RShift    )) <|>
 
-    (tok Op_GThan   >> return GThan     ) <|>
-    (tok Op_LThanE  >> return LThanE    ) <|>
-    (tok Op_GThanE  >> return GThanE    ) <|>
-    (tok Op_Equals  >> return Equal     ) <|>
-    (tok Op_BangE   >> return NotEq     )
+    (tok Op_GThan   >> return (GThan srcSpot)) <|>
+    (tok Op_LThanE  >> return (LThanE srcSpot)) <|>
+    (tok Op_GThanE  >> return (GThanE srcSpot)) <|>
+    (tok Op_Equals  >> return (Equal srcSpot)) <|>
+    (tok Op_BangE   >> return (NotEq srcSpot)))
 
 
 ----------------------------------------------------------------------------
 -- Types
 
 ttype :: P (Type SourceInfo)
-ttype = try (RefType <$> refType) <|> PrimType <$> primType
+ttype = try (withSourceSpan (RefType <$> refType))
+    <|> withSourceSpan (PrimType <$> primType)
 
 primType :: P (PrimType SourceInfo)
 primType =
-    tok KW_Boolean >> return BooleanT  <|>
-    tok KW_Byte    >> return ByteT     <|>
-    tok KW_Short   >> return ShortT    <|>
-    tok KW_Int     >> return IntT      <|>
-    tok KW_Long    >> return LongT     <|>
-    tok KW_Char    >> return CharT     <|>
-    tok KW_Float   >> return FloatT    <|>
-    tok KW_Double  >> return DoubleT
+    sourceSpot >>= (\srcSpot ->
+      tok KW_Boolean >> return (BooleanT srcSpot) <|>
+      tok KW_Byte    >> return (ByteT srcSpot)     <|>
+      tok KW_Short   >> return (ShortT srcSpot)    <|>
+      tok KW_Int     >> return (IntT srcSpot)      <|>
+      tok KW_Long    >> return (LongT srcSpot)     <|>
+      tok KW_Char    >> return (CharT srcSpot)     <|>
+      tok KW_Float   >> return (FloatT srcSpot)    <|>
+      tok KW_Double  >> return (DoubleT srcSpot))
 
+refType :: P (RefType SourceInfo)
+refType = undefined
+{- TODO COMEBACK
 refType :: P (RefType SourceInfo)
 refType =
     (do pt <- primType
@@ -1118,6 +1123,7 @@ refType =
         bs <- list arrBrackets
         return $ foldl (\f _ -> ArrayType . RefType . f)
                             ClassRefType bs ct) <?> "refType"
+-}
 
 nonArrayType :: P (Type SourceInfo)
 nonArrayType = withSourceSpan (PrimType <$> primType)
