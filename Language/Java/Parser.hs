@@ -1120,11 +1120,16 @@ refType =
                             ClassRefType bs ct) <?> "refType"
 
 nonArrayType :: P (Type SourceInfo)
-nonArrayType = PrimType <$> primType <|>
-    RefType <$> ClassRefType <$> classType
+nonArrayType = withSourceSpan (PrimType <$> primType)
+    <|> withSourceSpan (RefType <$> withSourceSpan (
+        do ClassRefType <$> classType))
 
 classType :: P (ClassType SourceInfo)
-classType = ClassType <$> seplist1 classTypeSpec period
+classType = do
+  pos1 <- getPosition
+  spl <- seplist1 classTypeSpec period
+  pos2 <- getPosition
+  return $ ClassType (SourceSpan pos1 pos2) spl
 
 classTypeSpec :: P (Ident SourceInfo, [TypeArgument SourceInfo])
 classTypeSpec = do

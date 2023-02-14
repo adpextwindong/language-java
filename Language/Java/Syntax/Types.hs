@@ -23,7 +23,7 @@ data RefType a
 -- | A class or interface type consists of a type declaration specifier,
 --   optionally followed by type arguments (in which case it is a parameterized type).
 data ClassType a
-    = ClassType [(Ident a, [TypeArgument a])] a
+    = ClassType a [(Ident a, [TypeArgument a])]
   deriving (Eq,Show,Read,Typeable,Generic,Data)
 
 -- | Type arguments may be either reference types or wildcards.

@@ -475,14 +475,14 @@ ppArgs p = parens . hsep . punctuate comma . map (prettyPrec p)
 
 instance Pretty (Type a) where
   prettyPrec p (PrimType pt _) = prettyPrec p pt
-  prettyPrec p (RefType  rt _) = prettyPrec p rt
+  prettyPrec p (RefType rt _) = prettyPrec p rt
 
 instance Pretty (RefType a) where
   prettyPrec p (ClassRefType ct _) = prettyPrec p ct
   prettyPrec p (ArrayType t _) = prettyPrec p t <> text "[]"
 
 instance Pretty (ClassType a) where
-  prettyPrec p (ClassType itas _) =
+  prettyPrec p (ClassType _ itas) =
     hcat . punctuate (char '.') $
       map (\(i,tas) -> prettyPrec p i <> ppTypeParams p tas) itas
 
