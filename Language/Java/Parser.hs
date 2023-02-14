@@ -968,15 +968,19 @@ args = parens $ seplist exp comma
 -- Arrays
 
 arrayAccessNPS :: P (ArrayIndex SourceInfo)
-arrayAccessNPS = do
+arrayAccessNPS = withSourceSpan $ do
+    pos1 <- getPosition
     n <- name
+    pos2 <- getPosition
     e <- list1 $ brackets exp
-    return $ ArrayIndex (ExpName n) e
+    return $ ArrayIndex (ExpName n (SourceSpan pos1 pos2)) e
 
 arrayAccessSuffix :: P (Exp SourceInfo -> ArrayIndex SourceInfo)
 arrayAccessSuffix = do
+    pos1 <- getPosition
     e <- list1 $ brackets exp
-    return $ \ref -> ArrayIndex ref e
+    pos2 <- getPosition
+    return $ \ref -> ArrayIndex ref e (SourceSpan pos1 pos2)
 
 --TODO TYPE SIG
 arrayAccess = try arrayAccessNPS <|> do
@@ -984,7 +988,7 @@ arrayAccess = try arrayAccessNPS <|> do
     ss <- list primarySuffix
     let aap = foldl (\a s -> s a) p ss
     case aap of
-     ArrayAccess ain -> return ain
+     ArrayAccess ain info -> return ain
      _ -> fail ""
 
 {-
@@ -1000,7 +1004,7 @@ arrayRef = ExpName <$> name <|> primaryNoNewArray
 -}
 
 arrayCreation :: P (Exp SourceInfo)
-arrayCreation = do
+arrayCreation = withSourceSpan $ do
     tok KW_New
     t <- nonArrayType
     f <- (try $ do
