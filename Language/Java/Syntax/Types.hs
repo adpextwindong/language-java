@@ -1,4 +1,4 @@
-{-# LANGUAGE DeriveDataTypeable, DeriveGeneric #-}
+{-# LANGUAGE DeriveDataTypeable, DeriveGeneric, DeriveFunctor #-}
 module Language.Java.Syntax.Types where
 
 import Data.Data
@@ -8,7 +8,7 @@ import GHC.Generics (Generic)
 data Type a
     = PrimType (PrimType a) a
     | RefType (RefType a) a
-  deriving (Eq,Show,Read,Typeable,Generic,Data)
+  deriving (Eq,Show,Read,Typeable,Generic,Data, Functor)
 
 -- | There are three kinds of reference types: class types, interface types, and array types.
 --   Reference types may be parameterized with type arguments.
@@ -18,34 +18,34 @@ data RefType a
     = ClassRefType (ClassType a) a
     {- | TypeVariable Ident -}
     | ArrayType (Type a) a
-  deriving (Eq,Show,Read,Typeable,Generic,Data)
+  deriving (Eq,Show,Read,Typeable,Generic,Data, Functor)
 
 -- | A class or interface type consists of a type declaration specifier,
 --   optionally followed by type arguments (in which case it is a parameterized type).
 data ClassType a
     = ClassType a [(Ident a, [TypeArgument a])]
-  deriving (Eq,Show,Read,Typeable,Generic,Data)
+  deriving (Eq,Show,Read,Typeable,Generic,Data, Functor)
 
 -- | Type arguments may be either reference types or wildcards.
 data TypeArgument a
     = Wildcard a (Maybe (WildcardBound a))
     | ActualType a (RefType a)
-  deriving (Eq,Show,Read,Typeable,Generic,Data)
+  deriving (Eq,Show,Read,Typeable,Generic,Data, Functor)
 
 data TypeDeclSpecifier a
     = TypeDeclSpecifier (ClassType a) a
     | TypeDeclSpecifierWithDiamond (ClassType a) (Ident a) (Diamond a) a
     | TypeDeclSpecifierUnqualifiedWithDiamond (Ident a) (Diamond a) a
-  deriving (Eq,Show,Read,Typeable,Generic,Data)
+  deriving (Eq,Show,Read,Typeable,Generic,Data, Functor)
 
 data Diamond a = Diamond a
-  deriving (Eq,Show,Read,Typeable,Generic,Data)
+  deriving (Eq,Show,Read,Typeable,Generic,Data, Functor)
 
 -- | Wildcards may be given explicit bounds, either upper (@extends@) or lower (@super@) bounds.
 data WildcardBound a
     = ExtendsBound a (RefType a)
     | SuperBound a (RefType a)
-  deriving (Eq,Show,Read,Typeable,Generic,Data)
+  deriving (Eq,Show,Read,Typeable,Generic,Data, Functor)
 
 -- | A primitive type is predefined by the Java programming language and named by its reserved keyword.
 data PrimType a
@@ -57,21 +57,21 @@ data PrimType a
     | CharT a
     | FloatT a
     | DoubleT a
-  deriving (Eq,Show,Read,Typeable,Generic,Data)
+  deriving (Eq,Show,Read,Typeable,Generic,Data, Functor)
 
 
 -- | A class is generic if it declares one or more type variables. These type variables are known
 --   as the type parameters of the class.
 data TypeParam a = TypeParam (Ident a) [RefType a] a
-  deriving (Eq,Show,Read,Typeable,Generic,Data)
+  deriving (Eq,Show,Read,Typeable,Generic,Data, Functor)
 
 -----------------------------------------------------------------------
 -- Names and identifiers
 
 -- | A single identifier.
 data Ident a = Ident String a
-    deriving (Eq,Ord,Show,Read,Typeable,Generic,Data)
+    deriving (Eq,Ord,Show,Read,Typeable,Generic,Data, Functor)
 
 -- | A name, i.e. a period-separated list of identifiers.
 data Name a = Name [Ident a] a
-    deriving (Eq,Ord,Show,Read,Typeable,Generic,Data)
+    deriving (Eq,Ord,Show,Read,Typeable,Generic,Data, Functor)
