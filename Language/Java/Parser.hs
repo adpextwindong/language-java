@@ -58,9 +58,22 @@ import Control.Applicative ( (<$>), (<$), (<*), (<*>) )
 
 type P = Parsec [L Token] ()
 
+-- SourceInfo Patch Stuff
 data SourceInfo = SourceSpan SourcePos SourcePos
                 | SourceSpot SourcePos
+                | InaccSpot SourcePos
   deriving Show
+
+sourcePos = statePos <$> getParserState
+sourceSpot = SourceSpot <$> sourcePos
+
+withSourceSpan :: P (SourceInfo -> a) -> P a
+withSourceSpan p = do
+  pos1 <- getPosition
+  p' <- p
+  pos2 <- getPosition
+  return $ p' (SourceSpan pos1 pos2)
+
 
 -- A trick to allow >> and >>=, normally infixr 1, to be
 -- used inside branches of <|>, which is declared as infixl 1.
@@ -87,37 +100,28 @@ parser p = runParser p () "" . lexer
 -- Packages and compilation units
 
 compilationUnit :: P (CompilationUnit SourceInfo)
-compilationUnit = do
-    pos1 <- getPosition
+compilationUnit = withSourceSpan $ do
     mpd <- opt packageDecl
     ids <- list importDecl
     tds <- list typeDecl
     eof
-    pos2 <- getPosition
-    let srcInfo = SourceInfo pos1 pos2
-    return $ CompilationUnit mpd ids (catMaybes tds) srcInfo
+    return $ CompilationUnit mpd ids (catMaybes tds)
 
 packageDecl :: P (PackageDecl SourceInfo)
-packageDecl = do
-    pos1 <- getPosition
+packageDecl = withSourceSpan $ do
     tok KW_Package
     n <- name
     semiColon
-    pos2 <- getPosition
-    let srcInfo = SourceInfo pos1 pos2
-    return $ PackageDecl n srcInfo
+    return $ PackageDecl n
 
 importDecl :: P (ImportDecl SourceInfo)
-importDecl = do
-    pos1 <- getPosition
+importDecl = withSourceSpan $ do
     tok KW_Import
     st <- bopt $ tok KW_Static
     n  <- name
     ds <- bopt $ period >> tok Op_Star
     semiColon
-    pos2 <- getPosition
-    let srcInfo = SourceInfo pos1 pos2
-    return $ ImportDecl st n ds srcInfo
+    return $ ImportDecl st n ds
 
 typeDecl :: P (Maybe (TypeDecl SourceInfo))
 typeDecl = Just <$> classOrInterfaceDecl <|>
@@ -137,7 +141,7 @@ classOrInterfaceDecl = do
           (do id <- annInterfaceDecl <|> interfaceDecl
               return $ \ms -> InterfaceTypeDecl (id ms))
     pos2 <- getPosition
-    let srcInfo = SourceInfo pos1 pos2
+    let srcInfo = SourceSpan pos1 pos2
     return $ de ms srcInfo
 
 classDecl :: P (Mod (ClassDecl SourceInfo))
@@ -145,13 +149,16 @@ classDecl = normalClassDecl <|> enumClassDecl
 
 normalClassDecl :: P (Mod (ClassDecl SourceInfo))
 normalClassDecl = do
+    pos1 <- getPosition
     tok KW_Class
     i   <- ident
     tps <- lopt typeParams
     mex <- opt extends
     imp <- lopt implements
     bod <- classBody
-    return $ \ms -> ClassDecl ms i tps ((fmap head) mex) imp bod
+    pos2 <- getPosition
+    let srcInfo = SourceSpan pos1 pos2
+    return $ \ms -> ClassDecl ms i tps ((fmap head) mex) imp bod srcInfo
 
 extends :: P [RefType SourceInfo]
 extends = tok KW_Extends >> refTypeList
@@ -161,24 +168,27 @@ implements = tok KW_Implements >> refTypeList
 
 enumClassDecl :: P (Mod (ClassDecl SourceInfo))
 enumClassDecl = do
+    pos1 <- getPosition
     tok KW_Enum
     i   <- ident
     imp <- lopt implements
     bod <- enumBody
-    return $ \ms -> EnumDecl ms i imp bod
+    pos2 <- getPosition
+    let srcInfo = SourceSpan pos1 pos2
+    return $ \ms -> EnumDecl ms i imp bod srcInfo
 
 classBody :: P (ClassBody SourceInfo)
-classBody = ClassBody <$> braces classBodyStatements
+classBody = withSourceSpan $ ClassBody <$> braces classBodyStatements
 
 enumBody :: P (EnumBody SourceInfo)
-enumBody = braces $ do
+enumBody = withSourceSpan . braces $ do
     ecs <- seplist enumConst comma
     optional comma
     eds <- lopt enumBodyDecls
     return $ EnumBody ecs eds
 
 enumConst :: P (EnumConstant SourceInfo)
-enumConst = do
+enumConst = withSourceSpan $ do
     id  <- ident
     as  <- lopt args
     mcb <- opt classBody
@@ -194,25 +204,35 @@ classBodyStatements = catMaybes <$> list classBodyStatement
 
 annInterfaceDecl :: P (Mod (InterfaceDecl SourceInfo))
 annInterfaceDecl = do
+    pos1 <- getPosition
     tok KW_AnnInterface
     id  <- ident
     tps <- lopt typeParams
     exs <- lopt extends
     bod <- interfaceBody
-    return $ \ms -> InterfaceDecl InterfaceAnnotation ms id tps exs bod
+    pos2 <- getPosition
+    let srcInfo = SourceSpan pos1 pos2
+    return $ \ms -> InterfaceDecl InterfaceAnnotation ms id tps exs bod srcInfo
 
 interfaceDecl :: P (Mod (InterfaceDecl SourceInfo))
 interfaceDecl = do
+    pos1 <- getPosition
     tok KW_Interface
     id  <- ident
     tps <- lopt typeParams
     exs <- lopt extends
     bod <- interfaceBody
-    return $ \ms -> InterfaceDecl InterfaceNormal ms id tps exs bod
+    pos2 <- getPosition
+    let srcInfo = SourceSpan pos1 pos2
+    return $ \ms -> InterfaceDecl InterfaceNormal ms id tps exs bod srcInfo
 
 interfaceBody :: P (InterfaceBody SourceInfo)
-interfaceBody = InterfaceBody . catMaybes <$>
-    braces (list interfaceBodyDecl)
+interfaceBody = do
+    pos1 <- getPosition
+    body <- list interfaceBodyDecl
+    pos2 <- getPosition
+    let srcInfo = SourceSpan pos1 pos2
+    return $ (`InterfaceBody` srcInfo) . catMaybes $ body
 
 -- Declarations
 
@@ -222,21 +242,34 @@ classBodyStatement =
        list1 semiColon
        return Nothing) <|>
     (try $ do
+       pos1 <- getPosition
        mst <- bopt (tok KW_Static)
        blk <- block
-       return $ Just $ InitDecl mst blk) <|>
-    (do ms  <- list modifier
+       pos2 <- getPosition
+       let srcInfo = SourceSpan pos1 pos2
+       return $ Just $ InitDecl mst blk srcInfo) <|>
+    (do
+        pos1 <- getPosition
+        ms  <- list modifier
         dec <- memberDecl
-        return $ Just $ MemberDecl (dec ms))
+        pos2 <- getPosition
+        let srcInfo = SourceSpan pos1 pos2
+        return $ Just $ MemberDecl (dec ms) srcInfo)
 
 memberDecl :: P (Mod (MemberDecl SourceInfo))
 memberDecl =
     (try $ do
+        pos1 <- getPosition
         cd  <- classDecl
-        return $ \ms -> MemberClassDecl (cd ms)) <|>
+        pos2 <- getPosition
+        let srcInfo = SourceSpan pos1 pos2
+        return $ \ms -> MemberClassDecl (cd ms) srcInfo) <|>
     (try $ do
+        pos1 <- getPosition
         id  <- try annInterfaceDecl <|> try interfaceDecl
-        return $ \ms -> MemberInterfaceDecl (id ms)) <|>
+        pos2 <- getPosition
+        let srcInfo = SourceSpan pos1 pos2
+        return $ \ms -> MemberInterfaceDecl (id ms) srcInfo) <|>
 
     try fieldDecl <|>
     try methodDecl <|>
@@ -244,53 +277,64 @@ memberDecl =
 
 fieldDecl :: P (Mod (MemberDecl SourceInfo))
 fieldDecl = endSemi $ do
+    pos1 <- getPosition
     typ <- ttype
     vds <- varDecls
-    return $ \ms -> FieldDecl ms typ vds
+    pos2 <- getPosition
+    let srcInfo = SourceSpan pos1 pos2
+    return $ \ms -> FieldDecl ms typ vds srcInfo
 
---TODO does Mod need a sourceinfo????
 methodDecl :: P (Mod (MemberDecl SourceInfo))
 methodDecl = do
+    pos1 <- getPosition
     tps <- lopt typeParams
     rt  <- resultType
     id  <- ident
     fps <- formalParams
     thr <- lopt throws
     bod <- methodBody
-    return $ \ms -> MethodDecl ms tps rt id fps thr Nothing bod
+    pos2 <- getPosition
+    let srcInfo = SourceSpan pos1 pos2
+    return $ \ms -> MethodDecl ms tps rt id fps thr Nothing bod srcInfo
 
 methodBody :: P (MethodBody SourceInfo)
-methodBody = MethodBody <$>
-    (const Nothing <$> semiColon <|> Just <$> block)
+methodBody = withSourceSpan (MethodBody <$>
+    (const Nothing <$> semiColon <|> Just <$> block))
 
 
 constrDecl :: P (Mod (MemberDecl SourceInfo))
 constrDecl = do
+    pos1 <- getPosition
     tps <- lopt typeParams
     id  <- ident
     fps <- formalParams
     thr <- lopt throws
     bod <- constrBody
-    return $ \ms -> ConstructorDecl ms tps id fps thr bod
+    pos2 <- getPosition
+    let srcInfo = SourceSpan pos1 pos2
+    return $ \ms -> ConstructorDecl ms tps id fps thr bod srcInfo
 
 constrBody :: P (ConstructorBody SourceInfo)
-constrBody = braces $ do
+constrBody = withSourceSpan $ braces $ do
     mec <- opt (try explConstrInv)
     bss <- list blockStmt
     return $ ConstructorBody mec bss
 
 explConstrInv :: P (ExplConstrInv SourceInfo)
 explConstrInv = endSemi $
+    withSourceSpan
     (try $ do
         tas <- lopt refTypeArgs
         tok KW_This
         as  <- args
         return $ ThisInvoke tas as) <|>
+    withSourceSpan
     (try $ do
         tas <- lopt refTypeArgs
         tok KW_Super
         as  <- args
         return $ SuperInvoke tas as) <|>
+    withSourceSpan
     (do pri <- primary
         period
         tas <- lopt refTypeArgs
@@ -308,15 +352,24 @@ interfaceBodyDecl = semiColon >> return Nothing <|>
 
 interfaceMemberDecl :: P (Mod (MemberDecl SourceInfo))
 interfaceMemberDecl =
-    (do cd  <- classDecl
-        return $ \ms -> MemberClassDecl (cd ms)) <|>
-    (do id  <- try annInterfaceDecl <|> try interfaceDecl
-        return $ \ms -> MemberInterfaceDecl (id ms)) <|>
+    (do
+        pos1 <- getPosition
+        cd  <- classDecl
+        pos2 <- getPosition
+        let srcInfo = SourceSpan pos1 pos2
+        return $ \ms -> MemberClassDecl (cd ms) srcInfo) <|>
+    (do
+        pos1 <- getPosition
+        id  <- try annInterfaceDecl <|> try interfaceDecl
+        pos2 <- getPosition
+        let srcInfo = SourceSpan pos1 pos2
+        return $ \ms -> MemberInterfaceDecl (id ms) srcInfo) <|>
     try fieldDecl <|>
     absMethodDecl
 
 absMethodDecl :: P (Mod (MemberDecl SourceInfo))
 absMethodDecl = do
+    pos1 <- getPosition
     tps <- lopt typeParams
     rt  <- resultType
     id  <- ident
@@ -324,7 +377,10 @@ absMethodDecl = do
     thr <- lopt throws
     def <- opt defaultValue
     semiColon
-    return $ \ms -> MethodDecl ms tps rt id fps thr def (MethodBody Nothing)
+    pos2 <- getPosition
+    let noMethodSpot = InaccSpot pos2
+    let srcInfo = SourceSpan pos1 pos2
+    return $ \ms -> MethodDecl ms tps rt id fps thr def (MethodBody Nothing noMethodSpot) srcInfo
 
 defaultValue :: P (Exp SourceInfo)
 defaultValue = tok KW_Default >> exp
@@ -340,13 +396,13 @@ formalParams = parens $ do
     if validateFPs fps
      then return fps
      else fail "Only the last formal parameter may be of variable arity"
-  where validateFPs :: [FormalParam] -> Bool
+  where validateFPs :: [FormalParam SourceInfo] -> Bool
         validateFPs [] = True
         validateFPs [_] = True
-        validateFPs (FormalParam _ _ b _ :xs) = not b
+        validateFPs (FormalParam _ _ b _ _ :xs) = not b
 
 formalParam :: P (FormalParam SourceInfo)
-formalParam = do
+formalParam = withSourceSpan $ do
     ms  <- list modifier
     typ <- ttype
     var <- bopt ellipsis
@@ -359,7 +415,7 @@ ellipsis = period >> period >> period
 -- Modifiers
 
 modifier :: P (Modifier SourceInfo)
-modifier =
+modifier = withSourceSpan $
         tok KW_Public      >> return Public
     <|> tok KW_Protected   >> return Protected
     <|> tok KW_Private     >> return Private
@@ -374,7 +430,7 @@ modifier =
     <|> Annotation <$> annotation
 
 annotation :: P (Annotation SourceInfo)
-annotation = flip ($) <$ tok Op_AtSign <*> name <*> (
+annotation = withSourceSpan $ flip ($) <$ tok Op_AtSign <*> name <*> (
                try (flip NormalAnnotation <$> parens evlist)
            <|> try (flip SingleElementAnnotation <$> parens elementValue)
            <|> try (MarkerAnnotation <$ return ())
@@ -388,9 +444,10 @@ elementValuePair = (,) <$> ident <* tok Op_Equal <*> elementValue
 
 elementValue :: P (ElementValue SourceInfo)
 elementValue =
-    EVVal <$> (    InitArray <$> arrayInit
-               <|> InitExp   <$> condExp )
-    <|> EVAnn <$> annotation
+    withSourceSpan (
+    EVVal <$> (    withSourceSpan (InitArray <$> arrayInit)
+               <|> withSourceSpan (InitExp   <$> condExp )))
+    <|> withSourceSpan (EVAnn <$> annotation)
 
 
 ----------------------------------------------------------------------------
@@ -400,16 +457,21 @@ varDecls :: P [VarDecl SourceInfo]
 varDecls = seplist1 varDecl comma
 
 varDecl :: P (VarDecl SourceInfo)
-varDecl = do
+varDecl = withSourceSpan $ do
     vid <- varDeclId
     mvi <- opt $ tok Op_Equal >> varInit
     return $ VarDecl vid mvi
 
 varDeclId :: P (VarDeclId SourceInfo)
 varDeclId = do
+    pos1 <- getPosition
     id  <- ident
+    pos2 <- getPosition
+    let idSrcInfo = SourceSpan pos1 pos2
+    let spotHack = InaccSpot pos2
+
     abs <- list arrBrackets
-    return $ foldl (\f _ -> VarDeclArray . f) VarId abs id
+    return $ foldl (\f _ -> (`VarDeclArray` spotHack) . f) (`VarId` idSrcInfo) abs id
 
 arrBrackets :: P ()
 arrBrackets = brackets $ return ()
@@ -422,12 +484,12 @@ localVarDecl = do
     return (ms, typ, vds)
 
 varInit :: P (VarInit SourceInfo)
-varInit =
+varInit = withSourceSpan $
     InitArray <$> arrayInit <|>
     InitExp   <$> exp
 
 arrayInit :: P (ArrayInit SourceInfo)
-arrayInit = braces $ do
+arrayInit = withSourceSpan $ braces $ do
     vis <- seplist varInit comma
     opt comma
     return $ ArrayInit vis
@@ -436,21 +498,29 @@ arrayInit = braces $ do
 -- Statements
 
 block :: P (Block SourceInfo)
-block = braces $ Block <$> list blockStmt
+block = withSourceSpan $ braces $ Block <$> list blockStmt
+
 
 blockStmt :: P (BlockStmt SourceInfo)
 blockStmt =
     (try $ do
+        pos1 <- getPosition
         ms  <- list modifier
         cd  <- classDecl
-        return $ LocalClass (cd ms)) <|>
-    (try $ do
+        pos2 <- getPosition
+        let srcInfo = SourceSpan pos1 pos2
+        return $ LocalClass (cd ms) srcInfo) <|>
+    withSourceSpan (try $ do
         (m,t,vds) <- endSemi $ localVarDecl
         return $ LocalVars m t vds) <|>
-    BlockStmt <$> stmt
+    withSourceSpan (BlockStmt <$> stmt)
 
 stmt :: P (Stmt SourceInfo)
-stmt = ifStmt <|> whileStmt <|> forStmt <|> labeledStmt <|> stmtNoTrail
+stmt = withSourceSpan ifStmt <|>
+       withSourceSpan whileStmt <|>
+       withSourceSpan forStmt <|>
+       withSourceSpan labeledStmt <|>
+       stmtNoTrail
   where
     ifStmt = do
         tok KW_If
@@ -492,7 +562,12 @@ stmt = ifStmt <|> whileStmt <|> forStmt <|> labeledStmt <|> stmtNoTrail
         return $ Labeled lbl s
 
 stmtNSI :: P (Stmt SourceInfo)
-stmtNSI = ifStmt <|> whileStmt <|> forStmt <|> labeledStmt <|> stmtNoTrail
+stmtNSI =
+  withSourceSpan ifStmt <|>
+  withSourceSpan whileStmt <|>
+  withSourceSpan forStmt <|>
+  withSourceSpan labeledStmt <|>
+  stmtNoTrail
   where
     ifStmt = do
         tok KW_If
@@ -531,7 +606,7 @@ stmtNSI = ifStmt <|> whileStmt <|> forStmt <|> labeledStmt <|> stmtNoTrail
         return $ Labeled i s
 
 stmtNoTrail :: P (Stmt SourceInfo)
-stmtNoTrail =
+stmtNoTrail = withSourceSpan (
     -- empty statement
     const Empty <$> semiColon <|>
     -- inner block
@@ -588,15 +663,15 @@ stmtNoTrail =
         -- least one catch or finally clause
         return $ Try b c mf) <|>
     -- expressions as stmts
-    ExpStmt <$> endSemi stmtExp
+    ExpStmt <$> endSemi stmtExp )
 
 -- For loops
 
 forInit :: P (ForInit SourceInfo)
-forInit = (do
+forInit = withSourceSpan (do
     try (do (m,t,vds) <- localVarDecl
             return $ ForLocalVars m t vds)) <|>
-    (seplist1 stmtExp comma >>= return . ForInitExps)
+    withSourceSpan (seplist1 stmtExp comma >>= return . ForInitExps)
 
 forUp :: P [Exp SourceInfo]
 forUp = seplist1 stmtExp comma
@@ -607,13 +682,14 @@ switchBlock :: P [SwitchBlock SourceInfo]
 switchBlock = braces $ list switchStmt
 
 switchStmt :: P (SwitchBlock SourceInfo)
-switchStmt = do
+switchStmt = withSourceSpan $ do
     lbl <- switchLabel
     bss <- list blockStmt
     return $ SwitchBlock lbl bss
 
 switchLabel :: P (SwitchLabel SourceInfo)
-switchLabel = (tok KW_Default >> colon >> return Default) <|>
+switchLabel = withSourceSpan (tok KW_Default >> colon >> return Default) <|>
+    withSourceSpan
     (do tok KW_Case
         e <- exp
         colon
@@ -622,7 +698,7 @@ switchLabel = (tok KW_Default >> colon >> return Default) <|>
 -- Try-catch clauses
 
 catch :: P (Catch SourceInfo)
-catch = do
+catch = withSourceSpan $ do
     tok KW_Catch
     fp <- parens formalParam
     b  <- block
@@ -654,14 +730,15 @@ postIncDec = do
     return $ foldl (\a s -> s a) e ops
 
 assignment :: P (Exp SourceInfo)
-assignment = do
+assignment = withSourceSpan $ do
     lh <- lhs
     op <- assignOp
     e  <- assignExp
     return $ Assign lh op e
 
 lhs :: P (Lhs SourceInfo)
-lhs = try (FieldLhs <$> fieldAccess)
+lhs = withSourceSpan $
+    try (FieldLhs <$> fieldAccess)
     <|> try (ArrayLhs <$> arrayAccess)
     <|> NameLhs <$> name
 
@@ -681,11 +758,14 @@ condExp = do
 
 condExpSuffix :: P (Exp SourceInfo -> Exp SourceInfo)
 condExpSuffix = do
+    pos1 <- getPosition
     tok Op_Query
     th <- exp
     colon
     el <- condExp
-    return $ \ce -> Cond ce th el
+    pos2 <- getPosition
+    let srcInfo = SourceSpan pos1 pos2
+    return $ \ce -> Cond ce th el srcInfo
 
 infixExp :: P (Exp SourceInfo)
 infixExp = do
@@ -696,15 +776,26 @@ infixExp = do
 infixExpSuffix :: P (Exp SourceInfo -> Exp SourceInfo)
 infixExpSuffix =
     (do
+      pos1 <- getPosition
       op <- infixCombineOp
       ie2 <- infixExp
-      return $ \ie1 -> BinOp ie1 op ie2) <|>
-    (do op <- infixOp
+      pos2 <- getPosition
+      let srcInfo = SourceSpan pos1 pos2
+      return $ \ie1 -> BinOp ie1 op ie2 srcInfo) <|>
+    (do
+        pos1 <- getPosition
+        op <- infixOp
         e2 <- unaryExp
-        return $ \e1 -> BinOp e1 op e2) <|>
-    (do tok KW_Instanceof
+        pos2 <- getPosition
+        let srcInfo = SourceSpan pos1 pos2
+        return $ \e1 -> BinOp e1 op e2 srcInfo) <|>
+    (do
+        pos1 <- getPosition
+        tok KW_Instanceof
         t  <- refType
-        return $ \e1 -> InstanceOf e1 t)
+        pos2 <- getPosition
+        let srcInfo = SourceSpan pos1 pos2
+        return $ \e1 -> InstanceOf e1 t srcInfo)
 
 unaryExp :: P (Exp SourceInfo)
 unaryExp = try preIncDec <|>
@@ -712,7 +803,7 @@ unaryExp = try preIncDec <|>
         op <- prefixOp
         ue <- unaryExp
         return $ op ue) <|>
-    try (do
+    try (withSourceSpan $ do
         t <- parens ttype
         e <- unaryExp
         return $ Cast t e) <|>
@@ -721,7 +812,7 @@ unaryExp = try preIncDec <|>
 postfixExpNES :: P (Exp SourceInfo)
 postfixExpNES = -- try postIncDec <|>
     try primary <|>
-    ExpName <$> name
+    withSourceSpan (ExpName <$> name)
 
 postfixExp :: P (Exp SourceInfo)
 postfixExp = do
@@ -741,32 +832,34 @@ primaryNoNewArray = startSuff primaryNoNewArrayNPS primarySuffix
 
 primaryNoNewArrayNPS :: P (Exp SourceInfo)
 primaryNoNewArrayNPS =
-    Lit <$> literal <|>
-    const This <$> tok KW_This <|>
+    withSourceSpan (Lit <$> literal) <|>
+    withSourceSpan (const This <$> tok KW_This) <|>
     parens exp <|>
     -- TODO: These two following should probably be merged more
-    (try $ do
+    (try $ withSourceSpan $ do
         rt <- resultType
         period >> tok KW_Class
         return $ ClassLit rt) <|>
-    (try $ do
+    (try $ withSourceSpan $ do
         n <- name
         period >> tok KW_This
         return $ ThisClass n) <|>
     try instanceCreationNPS <|>
-    try (MethodInv <$> methodInvocationNPS) <|>
-    try (FieldAccess <$> fieldAccessNPS) <|>
-    ArrayAccess <$> arrayAccessNPS
+    try (withSourceSpan (MethodInv <$> methodInvocationNPS)) <|>
+    try (withSourceSpan (FieldAccess <$> fieldAccessNPS)) <|>
+    withSourceSpan (ArrayAccess <$> arrayAccessNPS)
 
+--TODO make this a span not spot
 primarySuffix :: P (Exp SourceInfo -> Exp SourceInfo)
 primarySuffix = try instanceCreationSuffix <|>
-    try ((ArrayAccess .) <$> arrayAccessSuffix) <|>
-    try ((MethodInv .) <$> methodInvocationSuffix) <|>
-    (FieldAccess .) <$> fieldAccessSuffix
+    try (sourceSpot >>= (\info -> (flip ArrayAccess info .) <$> arrayAccessSuffix)) <|>
+    try (sourceSpot >>= (\info -> (flip MethodInv info .) <$> methodInvocationSuffix)) <|>
+      sourceSpot >>= (\info -> (flip FieldAccess info .) <$> fieldAccessSuffix)
 
 
 instanceCreationNPS :: P (Exp SourceInfo)
 instanceCreationNPS =
+    withSourceSpan $
     do tok KW_New
        tas <- lopt typeArgs
        tds <- typeDeclSpecifier
@@ -776,30 +869,43 @@ instanceCreationNPS =
 
 typeDeclSpecifier :: P (TypeDeclSpecifier SourceInfo)
 typeDeclSpecifier =
+    withSourceSpan
     (try $ do ct <- classType
               period
               i <- ident
+              pos1 <- getPosition
               tok Op_LThan
               tok Op_GThan
-              return $ TypeDeclSpecifierWithDiamond ct i Diamond
+              pos2 <- getPosition
+              let diamondInfo = SourceSpan pos1 pos2
+              return $ TypeDeclSpecifierWithDiamond ct i (Diamond diamondInfo)
     ) <|>
+    withSourceSpan
     (try $ do i <- ident
+              pos1 <- getPosition
               tok Op_LThan
               tok Op_GThan
-              return $ TypeDeclSpecifierUnqualifiedWithDiamond i Diamond
+              pos2 <- getPosition
+              let diamondInfo = SourceSpan pos1 pos2
+              return $ TypeDeclSpecifierUnqualifiedWithDiamond i (Diamond diamondInfo)
     ) <|>
+    withSourceSpan
     (do ct <- classType
         return $ TypeDeclSpecifier ct
     )
 
 instanceCreationSuffix :: P (Exp SourceInfo -> Exp SourceInfo)
 instanceCreationSuffix =
-     do period >> tok KW_New
+     do
+        pos1 <- getPosition
+        period >> tok KW_New
         tas <- lopt typeArgs
         i   <- ident
         as  <- args
         mcb <- opt classBody
-        return $ \p -> QualInstanceCreation p tas i as mcb
+        pos2 <- getPosition
+        let srcInfo = SourceSpan pos1 pos2
+        return $ \p -> QualInstanceCreation p tas i as mcb srcInfo
 
 instanceCreation :: P (Exp SourceInfo)
 instanceCreation = try instanceCreationNPS <|> do
@@ -812,18 +918,20 @@ instanceCreation = try instanceCreationNPS <|> do
 
 
 lambdaParams :: P (LambdaParams SourceInfo)
-lambdaParams = try (LambdaSingleParam <$> ident)
-               <|> try (parens $ LambdaFormalParams <$> (seplist formalParam comma))
-               <|> (parens $ LambdaInferredParams <$> (seplist ident comma))
+lambdaParams = try (withSourceSpan $ LambdaSingleParam <$> ident)
+               <|> withSourceSpan (try (parens $ LambdaFormalParams <$> (seplist formalParam comma)))
+               <|> withSourceSpan (parens $ LambdaInferredParams <$> (seplist ident comma))
 
 lambdaExp :: P (Exp SourceInfo)
-lambdaExp = Lambda
+lambdaExp = withSourceSpan $
+            Lambda
             <$> (lambdaParams <* (tok LambdaArrow))
-            <*> ((LambdaBlock <$> (try block))
-                 <|> (LambdaExpression <$> exp))
+            <*> (withSourceSpan (LambdaBlock <$> (try block))
+                 <|> withSourceSpan (LambdaExpression <$> exp))
 
 methodRef :: P (Exp SourceInfo)
-methodRef = MethodRef
+methodRef = withSourceSpan $
+            MethodRef
             <$> (name <*  (tok MethodRefSep))
             <*> ident
 
@@ -847,9 +955,11 @@ instanceCreation =
 
 fieldAccessNPS :: P (FieldAccess SourceInfo)
 fieldAccessNPS =
+    withSourceSpan
     (do tok KW_Super >> period
         i <- ident
         return $ SuperFieldAccess i) <|>
+    withSourceSpan
     (do n <- name
         period >> tok KW_Super >> period
         i <- ident
@@ -857,9 +967,12 @@ fieldAccessNPS =
 
 fieldAccessSuffix :: P (Exp SourceInfo -> FieldAccess SourceInfo)
 fieldAccessSuffix = do
+    pos1 <- getPosition
     period
     i <- ident
-    return $ \p -> PrimaryFieldAccess p i
+    pos2 <- getPosition
+    let srcInfo = SourceSpan pos1 pos2
+    return $ \p -> PrimaryFieldAccess p i srcInfo
 
 fieldAccess :: P (FieldAccess SourceInfo)
 fieldAccess = try fieldAccessNPS <|> do
@@ -867,43 +980,18 @@ fieldAccess = try fieldAccessNPS <|> do
     ss <- list primarySuffix
     let fap = foldl (\a s -> s a) p ss
     case fap of
-     FieldAccess fa -> return fa
+     FieldAccess fa _ -> return fa
      _ -> fail ""
-
---TODO REMOVE?
-{-
-fieldAccess :: P FieldAccess
-fieldAccess = try fieldAccessNPS <|> do
-    p <- primary
-    fs <- fieldAccessSuffix
-    return (fs p)
--}
-
---TODO REMOVE?
-{-
-fieldAccess :: P FieldAccess
-fieldAccess =
-    (do tok KW_Super >> period
-        i <- ident
-        return $ SuperFieldAccess i) <|>
-    (try $ do
-        n <- name
-        period >> tok KW_Super >> period
-        i <- ident
-        return $ ClassFieldAccess n i) <|>
-    (do p <- primary
-        period
-        i <- ident
-        return $ PrimaryFieldAccess p i)
--}
 
 methodInvocationNPS :: P (MethodInvocation SourceInfo)
 methodInvocationNPS =
+    withSourceSpan
     (do tok KW_Super >> period
         rts <- lopt refTypeArgs
         i   <- ident
         as  <- args
         return $ SuperMethodCall rts i as) <|>
+    withSourceSpan
     (do n <- name
         f <- (do as <- args
                  return $ \n -> MethodCall n as) <|>
@@ -918,11 +1006,14 @@ methodInvocationNPS =
 
 methodInvocationSuffix :: P (Exp SourceInfo -> MethodInvocation SourceInfo)
 methodInvocationSuffix = do
+        pos1 <- getPosition
         period
         rts <- lopt refTypeArgs
         i   <- ident
         as  <- args
-        return $ \p -> PrimaryMethodCall p [] i as
+        pos2 <- getPosition
+        let srcInfo = SourceSpan pos1 pos2
+        return $ \p -> PrimaryMethodCall p [] i as srcInfo
 
 methodInvocationExp :: P (Exp SourceInfo)
 methodInvocationExp = try (do
@@ -1122,19 +1213,21 @@ primType =
       tok KW_Double  >> return (DoubleT srcSpot))
 
 refType :: P (RefType SourceInfo)
-refType = undefined
-{- TODO COMEBACK
-refType :: P (RefType SourceInfo)
 refType =
-    (do pt <- primType
+    (do
+        ptSpot <- InaccSpot <$> getPosition
+        pt <- primType
+        arrSpot <- InaccSpot <$> getPosition
         (_:bs) <- list1 arrBrackets
-        return $ foldl (\f _ -> ArrayType . RefType . f)
-                        (ArrayType . PrimType) bs pt) <|>
-    (do ct <- classType
+        return $ foldl (\f _ -> (`ArrayType` arrSpot) . (`RefType` ptSpot) . f)
+                        ((`ArrayType` arrSpot) . (`PrimType` ptSpot)) bs pt) <|>
+    (do
+        ctSpot <- InaccSpot <$> getPosition
+        ct <- classType
+        arrSpot <- InaccSpot <$> getPosition
         bs <- list arrBrackets
-        return $ foldl (\f _ -> ArrayType . RefType . f)
-                            ClassRefType bs ct) <?> "refType"
--}
+        return $ foldl (\f _ -> (`ArrayType` arrSpot) . (`RefType` ctSpot). f)
+                            (`ClassRefType` ctSpot) bs ct) <?> "refType"
 
 nonArrayType :: P (Type SourceInfo)
 nonArrayType = withSourceSpan (PrimType <$> primType)
@@ -1172,14 +1265,6 @@ typeParam = withSourceSpan $ do
     bs <- lopt bounds
     return $ TypeParam i bs
 
---TODO LIFT THIS
-withSourceSpan :: P (SourceInfo -> a) -> P a
-withSourceSpan p = do
-  pos1 <- getPosition
-  p' <- p
-  pos2 <- getPosition
-  return $ p' (SourceSpan pos1 pos2)
-
 bounds :: P [RefType SourceInfo]
 bounds = tok KW_Extends >> seplist1 refType (tok Op_And)
 
@@ -1215,9 +1300,6 @@ ident = do
     IdentTok s -> Just $ Ident s pos
     _ -> Nothing
 
---TODO LIFT THIS
-sourcePos = statePos <$> getParserState
-sourceSpot = SourceSpot <$> sourcePos
 ------------------------------------------------------------
 
 empty :: P ()
@@ -1277,7 +1359,7 @@ matchToken t = javaToken (\r -> if r == t then Just () else Nothing)
 pos2sourcePos :: (Int, Int) -> SourcePos
 pos2sourcePos (l,c) = newPos "" l c
 
-type Mod a = [Modifier a] -> a
+type Mod a = [Modifier SourceInfo] -> a
 
 parens, braces, brackets, angles :: P a -> P a
 parens   = between (tok OpenParen)  (tok CloseParen)
