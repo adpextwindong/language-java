@@ -47,7 +47,7 @@ module Language.Java.Syntax
     ) where
 
 import Data.Data
-import Data.Tuple.Extra
+import Data.Tuple.Extra (uncurry3)
 import GHC.Generics (Generic)
 
 import Language.Java.Syntax.Types
