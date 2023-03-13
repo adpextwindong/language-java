@@ -1,4 +1,4 @@
-{-# LANGUAGE DeriveDataTypeable, DeriveGeneric, DeriveFunctor #-}
+{-# LANGUAGE DeriveDataTypeable, DeriveGeneric, DeriveFunctor, DeriveFoldable, DeriveTraversable #-}
 module Language.Java.Syntax
     ( CompilationUnit(..)
     , PackageDecl(..)
@@ -59,11 +59,11 @@ import Language.Java.Syntax.Exp
 
 -- | A compilation unit is the top level syntactic goal symbol of a Java program.
 data CompilationUnit a = CompilationUnit (Maybe (PackageDecl a)) [ImportDecl a] [TypeDecl a] a
-  deriving (Eq,Show,Read,Typeable,Generic,Data, Functor)
+  deriving (Eq,Show,Read,Typeable,Generic,Data, Functor, Foldable, Traversable)
 
 -- | A package declaration appears within a compilation unit to indicate the package to which the compilation unit belongs.
 data PackageDecl a = PackageDecl (Name a) a
-  deriving (Eq,Show,Read,Typeable,Generic,Data, Functor)
+  deriving (Eq,Show,Read,Typeable,Generic,Data, Functor, Foldable, Traversable)
 
 -- | An import declaration allows a static member or a named type to be referred to by a single unqualified identifier.
 --   The first argument signals whether the declaration only imports static members.
@@ -71,7 +71,7 @@ data PackageDecl a = PackageDecl (Name a) a
 --   a single name into scope.
 data ImportDecl a
     = ImportDecl Bool {- static? -} (Name a) Bool {- .*? -} a
-  deriving (Eq,Show,Read,Typeable,Generic,Data, Functor)
+  deriving (Eq,Show,Read,Typeable,Generic,Data, Functor, Foldable, Traversable)
 
 
 -----------------------------------------------------------------------
@@ -81,28 +81,28 @@ data ImportDecl a
 data TypeDecl a
     = ClassTypeDecl (ClassDecl a) a
     | InterfaceTypeDecl (InterfaceDecl a) a
-  deriving (Eq,Show,Read,Typeable,Generic,Data, Functor)
+  deriving (Eq,Show,Read,Typeable,Generic,Data, Functor, Foldable, Traversable)
 
 -- | A class declaration specifies a new named reference type.
 data ClassDecl a
     = ClassDecl [Modifier a] (Ident a) [TypeParam a] (Maybe (RefType a)) [RefType a] (ClassBody a) a
     | EnumDecl  [Modifier a] (Ident a)                             [RefType a] (EnumBody a) a
-  deriving (Eq,Show,Read,Typeable,Generic,Data, Functor)
+  deriving (Eq,Show,Read,Typeable,Generic,Data, Functor, Foldable, Traversable)
 
 -- | A class body may contain declarations of members of the class, that is,
 --   fields, classes, interfaces and methods.
 --   A class body may also contain instance initializers, static
 --   initializers, and declarations of constructors for the class.
 data ClassBody a = ClassBody [Decl a] a
-  deriving (Eq,Show,Read,Typeable,Generic,Data, Functor)
+  deriving (Eq,Show,Read,Typeable,Generic,Data, Functor, Foldable, Traversable)
 
 -- | The body of an enum type may contain enum constants.
 data EnumBody a = EnumBody [EnumConstant a] [Decl a] a
-  deriving (Eq,Show,Read,Typeable,Generic,Data, Functor)
+  deriving (Eq,Show,Read,Typeable,Generic,Data, Functor, Foldable, Traversable)
 
 -- | An enum constant defines an instance of the enum type.
 data EnumConstant a = EnumConstant (Ident a) [Argument a] (Maybe (ClassBody a)) a
-  deriving (Eq,Show,Read,Typeable,Generic,Data, Functor)
+  deriving (Eq,Show,Read,Typeable,Generic,Data, Functor, Foldable, Traversable)
 
 -- | An interface declaration introduces a new reference type whose members
 --   are classes, interfaces, constants and abstract methods. This type has
@@ -110,7 +110,7 @@ data EnumConstant a = EnumConstant (Ident a) [Argument a] (Maybe (ClassBody a)) 
 --   providing implementations for its abstract methods.
 data InterfaceDecl a
     = InterfaceDecl InterfaceKind [Modifier a] (Ident a) [TypeParam a] [RefType a] (InterfaceBody a) a
-  deriving (Eq,Show,Read,Typeable,Generic,Data, Functor)
+  deriving (Eq,Show,Read,Typeable,Generic,Data, Functor, Foldable, Traversable)
 
 -- | Interface can declare either a normal interface or an annotation
 data InterfaceKind = InterfaceNormal | InterfaceAnnotation
@@ -119,14 +119,14 @@ data InterfaceKind = InterfaceNormal | InterfaceAnnotation
 -- | The body of an interface may declare members of the interface.
 data InterfaceBody a
     = InterfaceBody [MemberDecl a] a
-  deriving (Eq,Show,Read,Typeable,Generic,Data, Functor)
+  deriving (Eq,Show,Read,Typeable,Generic,Data, Functor, Foldable, Traversable)
 
 -- | A declaration is either a member declaration, or a declaration of an
 --   initializer, which may be static.
 data Decl a
     = MemberDecl (MemberDecl a) a
     | InitDecl Bool (Block a) a
-  deriving (Eq,Show,Read,Typeable,Generic,Data, Functor)
+  deriving (Eq,Show,Read,Typeable,Generic,Data, Functor, Foldable, Traversable)
 
 
 -- | A class or interface member can be an inner class or interface, a field or
@@ -143,42 +143,42 @@ data MemberDecl a
     | MemberClassDecl (ClassDecl a) a
     -- | A member interface is an interface whose declaration is directly enclosed in another class or interface declaration.
     | MemberInterfaceDecl (InterfaceDecl a) a
-  deriving (Eq,Show,Read,Typeable,Generic,Data, Functor)
+  deriving (Eq,Show,Read,Typeable,Generic,Data, Functor, Foldable, Traversable)
 
 
 -- | A declaration of a variable, which may be explicitly initialized.
 data VarDecl a
     = VarDecl (VarDeclId a) (Maybe (VarInit a)) a
-  deriving (Eq,Show,Read,Typeable,Generic,Data, Functor)
+  deriving (Eq,Show,Read,Typeable,Generic,Data, Functor, Foldable, Traversable)
 
 -- | The name of a variable in a declaration, which may be an array.
 data VarDeclId a
     = VarId (Ident a) a
     | VarDeclArray (VarDeclId a) a
     -- ^ Multi-dimensional arrays are represented by nested applications of 'VarDeclArray'.
-  deriving (Eq,Show,Read,Typeable,Generic,Data, Functor)
+  deriving (Eq,Show,Read,Typeable,Generic,Data, Functor, Foldable, Traversable)
 
 -- | Explicit initializer for a variable declaration.
 data VarInit a
     = InitExp (Exp a) a
     | InitArray (ArrayInit a) a
-  deriving (Eq,Show,Read,Typeable,Generic,Data, Functor)
+  deriving (Eq,Show,Read,Typeable,Generic,Data, Functor, Foldable, Traversable)
 
 -- | A formal parameter in method declaration. The last parameter
 --   for a given declaration may be marked as variable arity,
 --   indicated by the boolean argument.
 data FormalParam a = FormalParam [Modifier a] (Type a) Bool (VarDeclId a) a
-  deriving (Eq,Show,Read,Typeable,Generic,Data, Functor)
+  deriving (Eq,Show,Read,Typeable,Generic,Data, Functor, Foldable, Traversable)
 
 -- | A method body is either a block of code that implements the method or simply a
 --   semicolon, indicating the lack of an implementation (modelled by 'Nothing').
 data MethodBody a = MethodBody (Maybe (Block a)) a
-  deriving (Eq,Show,Read,Typeable,Generic,Data, Functor)
+  deriving (Eq,Show,Read,Typeable,Generic,Data, Functor, Foldable, Traversable)
 
 -- | The first statement of a constructor body may be an explicit invocation of
 --   another constructor of the same class or of the direct superclass.
 data ConstructorBody a = ConstructorBody (Maybe (ExplConstrInv a)) [BlockStmt a] a
-  deriving (Eq,Show,Read,Typeable,Generic,Data, Functor)
+  deriving (Eq,Show,Read,Typeable,Generic,Data, Functor, Foldable, Traversable)
 
 -- | An explicit constructor invocation invokes another constructor of the
 --   same class, or a constructor of the direct superclass, which may
@@ -188,7 +188,7 @@ data ExplConstrInv a
     = ThisInvoke             [RefType a] [Argument a] a
     | SuperInvoke            [RefType a] [Argument a] a
     | PrimarySuperInvoke (Exp a) [RefType a] [Argument a] a
-  deriving (Eq,Show,Read,Typeable,Generic,Data, Functor)
+  deriving (Eq,Show,Read,Typeable,Generic,Data, Functor, Foldable, Traversable)
 
 
 -- | A modifier specifying properties of a given declaration. In general only
@@ -207,7 +207,7 @@ data Modifier a
     | Native a
     | Annotation (Annotation a) a
     | Synchronized_ a
-  deriving (Eq,Read,Typeable,Generic,Data, Functor)
+  deriving (Eq,Read,Typeable,Generic,Data, Functor, Foldable, Traversable)
 
 instance Show a => Show (Modifier a) where
    show (Public _) = "public"
@@ -235,7 +235,7 @@ data Annotation a = NormalAnnotation        { annName :: Name a-- Not type becau
                   | MarkerAnnotation        { annName :: Name a
                                             , srcInfo :: a}
 
-  deriving (Eq,Show,Read,Typeable,Generic,Data, Functor)
+  deriving (Eq,Show,Read,Typeable,Generic,Data, Functor, Foldable, Traversable)
 
 
 desugarAnnotation :: Annotation a -> (Name a, [(Ident a, ElementValue a)], a)
@@ -250,7 +250,7 @@ desugarAnnotation' = uncurry3 NormalAnnotation . desugarAnnotation
 -- | Annotations may contain  annotations or (loosely) expressions
 data ElementValue a = EVVal (VarInit a) a
                   | EVAnn (Annotation a) a
-  deriving (Eq,Show,Read,Typeable,Generic,Data, Functor)
+  deriving (Eq,Show,Read,Typeable,Generic,Data, Functor, Foldable, Traversable)
 
 evInfo :: ElementValue a -> a
 evInfo (EVVal _ a) = a
@@ -261,7 +261,7 @@ evInfo (EVAnn _ a) = a
 -- | A block is a sequence of statements, local class declarations
 --   and local variable declaration statements within braces.
 data Block a = Block [BlockStmt a] a
-  deriving (Eq,Show,Read,Typeable,Generic,Data, Functor)
+  deriving (Eq,Show,Read,Typeable,Generic,Data, Functor, Foldable, Traversable)
 
 
 
@@ -271,7 +271,7 @@ data BlockStmt a
     = BlockStmt (Stmt a) a
     | LocalClass (ClassDecl a) a
     | LocalVars [Modifier a] (Type a) [VarDecl a] a
-  deriving (Eq,Show,Read,Typeable,Generic,Data, Functor)
+  deriving (Eq,Show,Read,Typeable,Generic,Data, Functor, Foldable, Traversable)
 
 
 -- | A Java statement.
@@ -321,30 +321,30 @@ data Stmt a
     | Try (Block a) [Catch a] (Maybe {- finally -} (Block a)) a
     -- | Statements may have label prefixes.
     | Labeled (Ident a) (Stmt a) a
-  deriving (Eq,Show,Read,Typeable,Generic,Data, Functor)
+  deriving (Eq,Show,Read,Typeable,Generic,Data, Functor, Foldable, Traversable)
 
 -- | If a value is thrown and the try statement has one or more catch clauses that can catch it, then control will be
 --   transferred to the first such catch clause.
 data Catch a = Catch (FormalParam a) (Block a) a
-  deriving (Eq,Show,Read,Typeable,Generic,Data, Functor)
+  deriving (Eq,Show,Read,Typeable,Generic,Data, Functor, Foldable, Traversable)
 
 -- | A block of code labelled with a @case@ or @default@ within a @switch@ statement.
 data SwitchBlock a
     = SwitchBlock (SwitchLabel a) [BlockStmt a] a
-  deriving (Eq,Show,Read,Typeable,Generic,Data, Functor)
+  deriving (Eq,Show,Read,Typeable,Generic,Data, Functor, Foldable, Traversable)
 
 -- | A label within a @switch@ statement.
 data SwitchLabel a
     -- | The expression contained in the @case@ must be a 'Lit' or an @enum@ constant.
     = SwitchCase (Exp a) a
     | Default a
-  deriving (Eq,Show,Read,Typeable,Generic,Data, Functor)
+  deriving (Eq,Show,Read,Typeable,Generic,Data, Functor, Foldable, Traversable)
 
 -- | Initialization code for a basic @for@ statement.
 data ForInit a
     = ForLocalVars [Modifier a] (Type a) [VarDecl a] a
     | ForInitExps [Exp a] a
-  deriving (Eq,Show,Read,Typeable,Generic,Data, Functor)
+  deriving (Eq,Show,Read,Typeable,Generic,Data, Functor, Foldable, Traversable)
 
 -- | An exception type has to be a class type or a type variable.
 type ExceptionType a = RefType a -- restricted to ClassType or TypeVariable
@@ -421,7 +421,7 @@ data Exp a
     | Lambda (LambdaParams a) (LambdaExpression a) a
     -- | Method reference
     | MethodRef (Name a) (Ident a) a
-  deriving (Eq,Show,Read,Typeable,Generic,Data, Functor)
+  deriving (Eq,Show,Read,Typeable,Generic,Data, Functor, Foldable, Traversable)
 
 -- | The left-hand side of an assignment expression. This operand may be a named variable, such as a local
 --   variable or a field of the current object or class, or it may be a computed variable, as can result from
@@ -430,11 +430,11 @@ data Lhs a
     = NameLhs (Name a) a          -- ^ Assign to a variable
     | FieldLhs (FieldAccess a) a  -- ^ Assign through a field access
     | ArrayLhs (ArrayIndex a) a   -- ^ Assign to an array
-  deriving (Eq,Show,Read,Typeable,Generic,Data, Functor)
+  deriving (Eq,Show,Read,Typeable,Generic,Data, Functor, Foldable, Traversable)
 
 -- | Array access
 data ArrayIndex a = ArrayIndex (Exp a) [Exp a] a    -- ^ Index into an array
-  deriving (Eq,Show,Read,Typeable,Generic,Data, Functor)
+  deriving (Eq,Show,Read,Typeable,Generic,Data, Functor, Foldable, Traversable)
 
 -- | A field access expression may access a field of an object or array, a reference to which is the value
 --   of either an expression or the special keyword super.
@@ -442,7 +442,7 @@ data FieldAccess a
     = PrimaryFieldAccess (Exp a) (Ident a) a      -- ^ Accessing a field of an object or array computed from an expression.
     | SuperFieldAccess (Ident a) a            -- ^ Accessing a field of the superclass.
     | ClassFieldAccess (Name a) (Ident a) a       -- ^ Accessing a (static) field of a named class.
-  deriving (Eq,Show,Read,Typeable,Generic,Data, Functor)
+  deriving (Eq,Show,Read,Typeable,Generic,Data, Functor, Foldable, Traversable)
 
 
 -- ¦ A lambda parameter can be a single parameter, or mulitple formal or mulitple inferred parameters
@@ -450,13 +450,13 @@ data LambdaParams a
   = LambdaSingleParam (Ident a) a
   | LambdaFormalParams [FormalParam a] a
   | LambdaInferredParams [Ident a] a
-    deriving (Eq,Show,Read,Typeable,Generic,Data, Functor)
+    deriving (Eq,Show,Read,Typeable,Generic,Data, Functor, Foldable, Traversable)
 
 -- | Lambda expression, starting from java 8
 data LambdaExpression a
     = LambdaExpression (Exp a) a
     | LambdaBlock (Block a) a
-  deriving (Eq,Show,Read,Typeable,Generic,Data, Functor)
+  deriving (Eq,Show,Read,Typeable,Generic,Data, Functor, Foldable, Traversable)
 
 
 -- | A method invocation expression is used to invoke a class or instance method.
@@ -471,10 +471,10 @@ data MethodInvocation a
     | ClassMethodCall (Name a) [RefType a] (Ident a) [Argument a] a
     -- | Invoking a method of a named type, giving arguments for any generic type parameters.
     | TypeMethodCall  (Name a) [RefType a] (Ident a) [Argument a] a
-  deriving (Eq,Show,Read,Typeable,Generic,Data, Functor)
+  deriving (Eq,Show,Read,Typeable,Generic,Data, Functor, Foldable, Traversable)
 
 -- | An array initializer may be specified in a declaration, or as part of an array creation expression, creating an
 --   array and providing some initial values
 data ArrayInit a
     = ArrayInit [VarInit a] a
-  deriving (Eq,Show,Read,Typeable,Generic,Data, Functor)
+  deriving (Eq,Show,Read,Typeable,Generic,Data, Functor, Foldable, Traversable)

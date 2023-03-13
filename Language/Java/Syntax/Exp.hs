@@ -1,4 +1,4 @@
-{-# LANGUAGE DeriveDataTypeable, DeriveFunctor, DeriveGeneric #-}
+{-# LANGUAGE DeriveDataTypeable, DeriveFunctor, DeriveGeneric, DeriveFoldable, DeriveTraversable #-}
 module Language.Java.Syntax.Exp where
 
 import Data.Data
@@ -14,15 +14,15 @@ data Literal a
     | Char Char a
     | String String a
     | Null a
-  deriving (Eq,Show,Read,Typeable,Generic,Data, Functor)
+  deriving (Eq,Show,Read,Typeable,Generic,Data, Functor, Foldable, Traversable)
 
 -- | A binary infix operator.
 data Op a = Mult a| Div a| Rem a| Add a | Sub a | LShift a | RShift a | RRShift a
         | LThan a | GThan a | LThanE a | GThanE a | Equal a | NotEq a
         | And a| Or a| Xor a| CAnd a| COr a
-  deriving (Eq,Show,Read,Typeable,Generic,Data, Functor)
+  deriving (Eq,Show,Read,Typeable,Generic,Data, Functor, Foldable, Traversable)
 
 -- | An assignment operator.
 data AssignOp a = EqualA a | MultA a | DivA a | RemA a | AddA a | SubA a
               | LShiftA a| RShiftA a| RRShiftA a| AndA a| XorA a| OrA a
-  deriving (Eq,Show,Read,Typeable,Generic,Data, Functor)
+  deriving (Eq,Show,Read,Typeable,Generic,Data, Functor, Foldable, Traversable)
