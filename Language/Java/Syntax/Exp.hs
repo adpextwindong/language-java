@@ -1,4 +1,4 @@
-{-# LANGUAGE DeriveDataTypeable, DeriveGeneric #-}
+{-# LANGUAGE DeriveDataTypeable, DeriveFunctor, DeriveGeneric #-}
 module Language.Java.Syntax.Exp where
 
 import Data.Data
