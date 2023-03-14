@@ -1,6 +1,6 @@
 {-# LANGUAGE CPP #-}
 module Language.Java.Parser (
-    parser, SourceInfo(..),
+    parser, SourceInfo(..), SourcePos(..),
 
     compilationUnit, packageDecl, importDecl, typeDecl,
 
