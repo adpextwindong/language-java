@@ -27,6 +27,7 @@ Library
                       , array >= 0.1
                       , pretty >= 1.0
                       , parsec >= 3.0
+                      , extra >= 1.7
 
   if impl(ghc < 7.6)
     Build-Depends:      syb
